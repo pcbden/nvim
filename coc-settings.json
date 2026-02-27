@@ -1,0 +1,13 @@
+{
+    "clangd.inlayHints.enable": false,      
+    "diagnostic.enable": false,
+      "inlayHint.enable": false,
+ 
+  "clangd.arguments": [
+    "--background-index",
+    "--header-insertion=never",
+    "--query-driver=/opt/gcc-arm/bin/arm-none-eabi-gcc",
+    "--function-arg-placeholders=0",
+    "--compile-commands-dir=."
+ ]
+}
