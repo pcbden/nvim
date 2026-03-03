@@ -1,4 +1,10 @@
 let g:loaded_matchparen=1
+let g:termdebugger = "gdb-multiarch"
+let g:termdebug_use_prompt = 0
+let g:termdebug_wide = 1
+if !exists('g:loaded_termdebug')
+  packadd termdebug
+endif
 call plug#begin('~/.local/share/nvim/plugged')
     Plug 'neoclide/coc.nvim', {'branch': 'release'}
     Plug 'nvim-lua/plenary.nvim'
@@ -169,41 +175,12 @@ vim.keymap.set('n', '<leader>fg', require('telescope.builtin').live_grep)
 vim.keymap.set('n', '<leader>fb', require('telescope.builtin').buffers)
 vim.keymap.set('n', '<leader>fh', require('telescope.builtin').help_tags)
 
--- Kill all OpenOCD and GDB processes
-vim.keymap.set("n", "<leader>q", function()
-  -- Kill processes
-  local job1 = vim.fn.jobstart("pkill openocd")
-  local job2 = vim.fn.jobstart("pkill gdb-multiarch")
-  vim.defer_fn(function()
-    vim.cmd("bd!")
-  end, 200)
-  -- Close any terminal buffers that match openocd or gdb
-end)
 
 vim.keymap.set("n", "<leader>x", function()
 local brk = 'b ' .. vim.fn.expand('%:t') .. ':' .. vim.fn.line('.')
 print(brk)
 vim.fn.setreg('"',brk)
 vim.fn.setreg('+',brk)
-end)
-
-vim.keymap.set("n", "<leader>d", function()
-  local elf = "build/" .. pfn() .. ".elf"
-  --local elf = pfn() .. ".elf"
-
-  vim.defer_fn(function()
-  vim.cmd("terminal openocd -f interface/stlink-dap.cfg -f target/stm32l4x.cfg &" ..
-  --vim.cmd("terminal openocd -f /usr/share/openocd/scripts/interface/ftdi/ft232h-module-swd.cfg -f /usr/share/openocd/scripts/target/stm32l4x.cfg &" ..
-  
-  "sleep 2;" .. 
-  "gdb-multiarch " .. elf ..
-  " -ex 'target extended-remote :3333'" ..
-  " -ex 'monitor reset halt'" ..
-  " -ex 'shell clear'" ..
-  " -ex 'set print pretty on'")
-  vim.cmd("startinsert")
-  
-  end, 1000) -- 1 second delay to let OpenOCD initialize
 end)
 
 vim.keymap.set("n", "<leader>u", function()
@@ -213,5 +190,42 @@ vim.keymap.set("n", "<leader>u", function()
   vim.cmd("!st-info --probe")
   vim.cmd("!st-flash write " .. name .. ".bin 0x08000000 && st-flash reset")
 end)
+
+vim.keymap.set("n", "<leader>da", function()
+  vim.cmd("Break")
+end)
+
+local pre_debug_buffers = {}
+
+vim.keymap.set("n", "<leader>d", function()
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    pre_debug_buffers[buf] = true
+  end
+
+  local elf = "build/" .. pfn() .. ".elf"
+  vim.cmd("Termdebug " .. elf)
+  vim.defer_fn(function()
+    vim.cmd("wincmd w")
+    vim.cmd("close")
+    vim.cmd("call TermDebugSendCommand('target extended-remote :3333')")
+    vim.cmd("call TermDebugSendCommand('monitor reset halt')")
+    vim.cmd("call TermDebugSendCommand('shell clear')")
+    vim.cmd("vertical resize 60")
+  end, 1000)
+end)
+
+vim.keymap.set("n", "<leader>q", function()
+  vim.fn.jobstart("pkill gdb-multiarch")
+  vim.defer_fn(function()
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if not pre_debug_buffers[buf] then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end
+    pre_debug_buffers = {}
+  end, 200)
+end)
+
+
 EOF
 
