@@ -5,11 +5,15 @@ let g:termdebug_wide = 1
 if !exists('g:loaded_termdebug')
   packadd termdebug
 endif
+
 call plug#begin('~/.local/share/nvim/plugged')
     Plug 'neoclide/coc.nvim', {'branch': 'release'}
     Plug 'nvim-lua/plenary.nvim'
     Plug 'nvim-telescope/telescope.nvim'
     Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
+    Plug 'nvim-lualine/lualine.nvim'
+    Plug 'lewis6991/gitsigns.nvim'
+    Plug 'greggh/claude-code.nvim'
   call plug#end()
   tnoremap <Esc> <C-\><C-n>
   nnoremap ZZ <Nop>
@@ -104,6 +108,8 @@ vim.keymap.set("n", "<leader>rr", function()
   print("st-info --probe")
 end)
 
+vim.keymap.set("n", "p=", "p`[v`]=")
+
 vim.keymap.set("n", "<leader>y", function()
   vim.cmd("bufdo bdelete")
 end)
@@ -169,6 +175,48 @@ require('telescope').setup{
   }
 }
 
+require('claude-code').setup({
+window = {
+  position = "tab",
+  height = 1.0,
+},
+  keymaps = {
+    toggle = {
+      normal = "<leader>ai",
+      terminal = "<C-\\><C-n><leader>ai",
+    },
+  },
+})
+vim.api.nvim_create_autocmd("TermOpen", {
+  pattern = "*claude*",
+  callback = function()
+    vim.cmd("resize 999")
+  end,
+})
+
+require('lualine').setup({
+  options = {
+    theme = 'auto',
+    section_separators = { left = '|', right = '|' },
+    component_separators = { left = '|', right = '|' },
+  },
+  sections = {
+    lualine_a = { 'mode' },
+    lualine_b = { 'branch', 'diff' },
+    lualine_c = { 'filename'},
+    lualine_x = {
+    {
+      function()
+        local result = vim.fn.system("git log -1 --format=%s 2>/dev/null")
+        return result:gsub("\n", "")
+      end
+    }
+    },
+    lualine_y = {},
+    lualine_z = { 'location' }
+  }
+})
+
 -- Example keybindings
 vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files)
 vim.keymap.set('n', '<leader>fg', require('telescope.builtin').live_grep)
@@ -183,6 +231,15 @@ vim.fn.setreg('"',brk)
 vim.fn.setreg('+',brk)
 end)
 
+vim.keymap.set("n", "<leader>k", function()
+  local current = vim.api.nvim_get_current_buf()
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if buf ~= current and vim.bo[buf].buftype ~= "terminal" then
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end
+  end
+end)
+
 vim.keymap.set("n", "<leader>u", function()
   local name = "build/" .. pfn()
   --local name = pfn()
@@ -193,6 +250,10 @@ end)
 
 vim.keymap.set("n", "<leader>da", function()
   vim.cmd("Break")
+end)
+
+vim.keymap.set("n", "<leader>dc", function()
+  vim.cmd("Clear")
 end)
 
 local pre_debug_buffers = {}
@@ -210,7 +271,7 @@ vim.keymap.set("n", "<leader>d", function()
     vim.cmd("call TermDebugSendCommand('target extended-remote :3333')")
     vim.cmd("call TermDebugSendCommand('monitor reset halt')")
     vim.cmd("call TermDebugSendCommand('shell clear')")
-    vim.cmd("vertical resize 60")
+    vim.cmd("vertical resize 50")
   end, 1000)
 end)
 
